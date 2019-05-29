@@ -1,3 +1,4 @@
+# Initialize boilerplate for a new function
 param (
 	[string]$name = $( Read-Host "Function name" )
 )
