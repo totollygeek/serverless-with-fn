@@ -3,38 +3,66 @@
 # This script should be run from the .\scripts folder
 
 # We initialize some variables used below
-$appName = 'devdays'
+$appName = 'fndotnet'
 $mySqlContainerName = 'mysql0'
+$volumeMap = "$($PSScriptRoot):/scripts"
 
-# Delete the fn app if it is there
-fn delete app $appName
+function Exec([scriptblock] $cmd, [string] $message) {
+	Write-Host -NoNewline "$message..."
+	& $cmd
+	Write-Host -ForegroundColor Green " Done!"
+}
+
+# Run MySQL in docker
+Exec {
+	& docker run --name $mySqlContainerName -p 3306:3306 -v $volumeMap -e MYSQL_ROOT_PASSWORD=secret123! -d mysql
+} "Starting MySQL container"
+
+Exec { Start-Sleep -Seconds 20 } "Waiting for 20 seconds for MySQL to be up and running"
+
+# Create database
+Exec {
+	& docker exec -i $mySqlContainerName sh /scripts/createdb.sh
+} "Creating database inside container"
 
 # Create the app
-fn create app $appName
+Exec {
+	& fn create app $appName
+} "Creating Fn app $appName"
 
-# Change location to detect function
-Set-Location ..\src\detect
 
-# Deploy the function
-fn --verbose deploy --app $appName --local
+# Deploy the detect function
+Exec {
+	# Change location to detect function
+	Set-Location ../src/detect
 
-# Change location to the save function
-Set-Location ..\save
+	& fn --verbose deploy --app $appName --local
+} "Deploy function `"detect`""
 
-# Deploy the function
-fn --verbose deploy --app $appName --local
+
+# Deploy the save function
+Exec {	
+	# Change location to the save function
+	Set-Location ../save
+
+	& fn --verbose deploy --app $appName --local
+} "Deploy function `"save`""
 
 $DB_ADDRESS = docker inspect --type container -f '{{.NetworkSettings.IPAddress}}' $mySqlContainerName
-fn config app $appName DB_ADDRESS $DB_ADDRESS
+& fn config app $appName DB_ADDRESS $DB_ADDRESS
 
 $FN_ADDRESS = docker inspect --type container -f '{{.NetworkSettings.IPAddress}}' fnserver
-fn config app $appName FN_ADDRESS $FN_ADDRESS
+& fn config app $appName FN_ADDRESS $FN_ADDRESS
 
-# Drop the stats container if there
-docker rm stats -f
+# Build stats container image first
+Exec { 
+	Set-Location ../stats
 
-# Run the new one
-docker run --name=stats -e ASPNETCORE_ENVIRONMENT=Development -e DB_ADDRESS=$DB_ADDRESS -p 8888:80 -d stats:latest
+	& docker build -t stats:latest .
 
-# Change location back to where we are
-Set-Location ..\..\scripts
+	Set-Location ../../scripts
+} "Building stats docker image"
+
+Exec {
+	& docker run --name=stats -e ASPNETCORE_ENVIRONMENT=Development -e DB_ADDRESS=$DB_ADDRESS -p 8888:80 -d stats:latest
+} "Starting `"stats`" container"

@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Net;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,7 +52,7 @@ namespace detect
 						? "Android detected!"
 						: "User-agent doesn't look like a phone. Don't cheat ;)";
 
-				var client = new RestClient($"http://{FN_ADDRESS}:8080/t/devdays/save");
+				var client = new RestClient($"http://{FN_ADDRESS}:8080/t/fndotnet/save");
 				var request = new RestRequest(Method.POST);
 				request.AddJsonBody(result);
 
