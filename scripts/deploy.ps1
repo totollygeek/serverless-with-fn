@@ -18,12 +18,17 @@ Exec {
 	& docker run --name $mySqlContainerName -p 3306:3306 -v $volumeMap -e MYSQL_ROOT_PASSWORD=secret123! -d mysql
 } "Starting MySQL container"
 
-Exec { Start-Sleep -Seconds 20 } "Waiting for 20 seconds for MySQL to be up and running"
+Exec { Start-Sleep -Seconds 30 } "Waiting for 30 seconds for MySQL to be up and running"
 
 # Create database
 Exec {
 	& docker exec -i $mySqlContainerName sh /scripts/createdb.sh
 } "Creating database inside container"
+
+# Create the app
+Exec {
+	& fn start -d
+} "Running Fn Server"
 
 # Create the app
 Exec {

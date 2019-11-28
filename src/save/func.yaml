@@ -1,8 +1,8 @@
 schema_version: 20180708
 name: save
-version: 0.0.4
+version: 0.0.1
 runtime: docker
 triggers:
-- name: save
-  type: http
-  source: /save
+    - name: save
+      type: http
+      source: /save
