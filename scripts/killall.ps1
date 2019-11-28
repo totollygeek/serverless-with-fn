@@ -9,3 +9,6 @@ $mySqlContainerName = 'mysql0'
 # Drop the stats container if there
 & docker rm stats -f
 & docker rm $mySqlContainerName -f
+
+# Stop Fn Server
+& fn stop
