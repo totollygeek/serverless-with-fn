@@ -11,7 +11,7 @@ namespace save
 {
 	public class Function
 	{
-		private const string CONNECTION_STRING = "Server={0};Database=devdays;Uid=\"root\";Pwd=\"secret123!\";Allow User Variables=True;Pooling=True";
+		private const string CONNECTION_STRING = "Server={0};Database=dev;Uid=\"root\";Pwd=\"secret123!\";Allow User Variables=True;Pooling=True";
 		private const string SQL_COMMAND = "insert into fn (`useragent`, `type`, `date`) VALUES (@useragent, @type, @date)";
 
 		private static MySqlConnection _connection;
