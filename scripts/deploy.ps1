@@ -6,29 +6,75 @@
 $appName = 'fndotnet'
 $mySqlContainerName = 'mysql0'
 $volumeMap = "$($PSScriptRoot):/scripts"
+$prometheusYamlMap = "$($PSScriptRoot)/config/prometheus.yml:/etc/prometheus/prometheus.yml"
 
 function Exec([scriptblock] $cmd, [string] $message) {
-	Write-Host -NoNewline "$message..."
+	Write-Host "+--------------------------"
+	Write-Host "| $message..."
+	Write-Host "+------------"
 	& $cmd
-	Write-Host -ForegroundColor Green " Done!"
+	Write-Host -ForegroundColor Green "+-------+"
+	Write-Host -ForegroundColor Green "| Done! |"
+	Write-Host -ForegroundColor Green "+-------+"
 }
 
 # Run MySQL in docker
 Exec {
-	& docker run --name $mySqlContainerName -p 3306:3306 -v $volumeMap -e MYSQL_ROOT_PASSWORD=secret123! -d mysql
+	& docker run `
+		--name $mySqlContainerName `
+		-p 3306:3306 -v $volumeMap `
+		-e MYSQL_ROOT_PASSWORD='secret123!' `
+		-d mysql 
 } "Starting MySQL container"
 
-Exec { Start-Sleep -Seconds 30 } "Waiting for 30 seconds for MySQL to be up and running"
+$logCount = 0;
+do {
+	Write-Host -ForegroundColor Yellow "Waiting for 5 more seconds for MySQL to be up and running"
+	Start-Sleep -Seconds 5
+	$logCount = 0;
+	$output = (docker logs $mySqlContainerName 2>&1)
+	foreach ($line in $output) {
+		if ($line -like "*Plugin ready for connections*") { $logCount++ }
+	}
+	Write-Host -ForegroundColor Green "Found $logCount instances"
+} while ($logCount -lt 2)
 
 # Create database
 Exec {
 	& docker exec -i $mySqlContainerName sh /scripts/createdb.sh
 } "Creating database inside container"
 
-# Create the app
+# Start the Fn Server
 Exec {
 	& fn start -d
 } "Running Fn Server"
+
+# Start the Fn UI
+Exec {
+	& docker run `
+		--name=ui --rm -it `
+		-d --link fnserver:api `
+		-p 4000:4000 `
+		-e "FN_API_URL=http://api:8080" fnproject/ui
+} "Starting Fn UI"
+
+# Start Prometheus
+Exec {	
+	& docker run `
+		--rm `
+		--name=prometheus `
+		-d -p 9090:9090 `
+		-v $prometheusYamlMap `
+		--add-host="fnserver:172.17.0.1" prom/prometheus
+} "Starting Prometheus"
+
+# Start Grafana
+Exec {
+	& docker run `
+		--name=grafana `
+		-d -p 5000:3000 `
+		--add-host="prometheus:172.17.0.1" grafana/grafana
+} "Starting Grafana"
 
 # Create the app
 Exec {
